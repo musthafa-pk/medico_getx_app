@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
-import 'package:medico_getx_app/Utils/Routes/routes_name.dart';
-import 'package:medico_getx_app/views/HistoryPage/historyController.dart';
-import 'package:medico_getx_app/views/HistoryPage/historybyto.dart';
+
+
+import 'HistoryController.dart';
+import 'historybyto.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({Key? key}) : super(key: key);
@@ -13,7 +14,6 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-
   final historyController = Get.put(HistoryController());
 
   @override

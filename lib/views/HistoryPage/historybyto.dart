@@ -2,96 +2,69 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:medico_getx_app/views/HistoryPage/historyController.dart';
-
+import 'package:http/http.dart' as http;
 import '../../Utils/util.dart';
 import '../../res/app_urls.dart';
-import 'package:http/http.dart' as http;
-
 import '../../res/components/customDropdown.dart';
+import 'HistoryController.dart';
+
 class HistoryByTo extends StatefulWidget {
-  String to;
-  HistoryByTo({required this.to, Key? key}) : super(key: key);
+  final String to;
+
+  const HistoryByTo({required this.to, Key? key}) : super(key: key);
 
   @override
   State<HistoryByTo> createState() => _HistoryByToState();
 }
-
 class _HistoryByToState extends State<HistoryByTo> {
   final historyController = Get.put(HistoryController());
   List<Map<String, dynamic>> selectedItems = [];
   bool selectAll = false;
-
   List<dynamic> filtertableDataset = [];
-  void toggleSelection(Map<String, dynamic> item) {
-    setState(() {
-      if (selectedItems.contains(item)) {
-        selectedItems.remove(item);
+
+  Future<List<Map<String, dynamic>>> getFilterData(String to) async {
+    try {
+      var requestBody = {
+        'log_id': Util.userLoggedId,
+        'to': to,
+      };
+
+      final response = await http.post(
+        Uri.parse(AppUrls.filterData),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        var responseData = jsonDecode(response.body);
+
+        if (responseData is List) {
+          return List<Map<String, dynamic>>.from(responseData);
+        } else if (responseData is Map<String, dynamic>) {
+          return [responseData];
+        }
       } else {
-        selectedItems.add({
-          'st_id': item['st_id'],
-          'id': item['id'],
-          'status': item['status'],
-        });
+        print("Error: ${response.statusCode}, ${response.body}");
       }
-    });
-  }
-  Future<void>getfilterdata(to)async{
-    var requestBody = {
-      'log_id': Util.userLoggedId,
-      'to':to.toString()
-    };
-    final response = await http.post(
-      Uri.parse(AppUrls.filterData),
-      headers: {
-        'Content-Type': 'application/json',
-        // Add any other headers you may need
-      },
-      body: jsonEncode(requestBody),
-    );
-    if (response.statusCode == 200) {
-      // print("Success: ${response.body}");
-      var responseData = jsonDecode(response.body);
-      // print(responseData);
-
-      if (responseData is List) {
-        print('its list');
-        // If the response data is a List, directly set it to tableDataset
-        // setState(() {
-        filtertableDataset = responseData;
-        // });
-      } else if (responseData is Map<String, dynamic>) {
-        print('map');
-        // If the response data is a Map, extract the desired data and set it to tableDataset
-        // setState(() {
-        filtertableDataset = [responseData];
-        print('last map is : ${filtertableDataset}');
-        // });
-      }
-
-      // Do something with the response data
-    } else {
-      print("Error: ${response.statusCode}, ${response.body}");
-      // Handle the error
+    } catch (error) {
+      print('Error: $error');
     }
+
+    // Return an empty list if there is an error or if the response doesn't match the expected types.
+    return [];
   }
+
 
   @override
   void initState() {
-    // TODO: implement initState
-    print('passed value is ${widget.to}');
-    // historyController.getbyto(context, widget.to);
-
-    getfilterdata(widget.to);
     super.initState();
+    print('passed value is ${widget.to}');
   }
 
   @override
   Widget build(BuildContext context) {
-
-    final historyController = Get.put(HistoryController());
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.teal,
@@ -101,15 +74,7 @@ class _HistoryByToState extends State<HistoryByTo> {
         child: SingleChildScrollView(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: FutureBuilder(
-              future: getfilterdata(widget.to),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(child: Text('Some Error Occured !'));
-                } else {
-                  return DataTable(
+            child: DataTable(
                     columns: [
                       DataColumn(label: Text('Select')),
                       DataColumn(label: Text('Stockist')),
@@ -121,25 +86,21 @@ class _HistoryByToState extends State<HistoryByTo> {
                     rows: filtertableDataset[0]['data']
                         .where((data) =>
                     data['to'].toString() ==
-                        historyController.selectedTo.toString())
+                        widget.to.toString())
                         .map<DataRow>((data) {
                       return buildDataRow(data);
                     }).toList(),
-                    onSelectAll: (isSelectedAll) {
-
-                    },
-                  );
-                }
-              },
-            ),
+                    onSelectAll: (isSelectedAll) {},
+                  )
           ),
         ),
       ),
     );
   }
+
   DataRow buildDataRow(Map<String, dynamic> data) {
     bool isSelected = selectedItems.contains(data) || selectAll;
-
+    print(selectedItems);
     return DataRow(
       cells: [
         DataCell(
@@ -157,8 +118,7 @@ class _HistoryByToState extends State<HistoryByTo> {
         DataCell(
           CustomDropdown(
             options: ['In Transit', 'Delivered'],
-            hintText:
-            data['status'] == null ? '-' : data['status'].toString(),
+            hintText: data['status'] == null ? '-' : data['status'].toString(),
             onChanged: (value) {
               // historyController.selectedTo = value.toString().obs;
             },
@@ -166,5 +126,19 @@ class _HistoryByToState extends State<HistoryByTo> {
         ),
       ],
     );
+  }
+
+  void toggleSelection(Map<String, dynamic> item) {
+    setState(() {
+      if (selectedItems.contains(item)) {
+        selectedItems.remove(item);
+      } else {
+        selectedItems.add({
+          'st_id': item['st_id'],
+          'id': item['id'],
+          'status': item['status'],
+        });
+      }
+    });
   }
 }
